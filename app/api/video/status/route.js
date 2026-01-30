@@ -36,32 +36,46 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid status response' }, { status: 500 })
     }
 
-    console.log(`[video/status] ${requestId}: status=${status.status}`)
+    console.log(`[video/status] ${requestId}: status=${status.status}, full:`, JSON.stringify(status).slice(0, 500))
 
     if (status.status === 'COMPLETED') {
-      // Fetch the actual result using the URL provided by fal.ai
-      const resultRes = await fetch(responseUrl, {
+      // First check if the status response itself contains the video URL
+      if (status.video?.url) {
+        console.log('[video/status] Video URL from status response:', status.video.url.slice(0, 80))
+        return Response.json({ status: 'completed', videoUrl: status.video.url })
+      }
+
+      // Use the response_url from the status response if available, otherwise use the one from queue submit
+      const resultUrl = status.response_url || responseUrl
+      console.log(`[video/status] Fetching result from: ${resultUrl}`)
+
+      const resultRes = await fetch(resultUrl, {
         headers: { 'Authorization': `Key ${falKey}` },
       })
 
+      console.log(`[video/status] Result fetch status: ${resultRes.status}`)
+
       if (!resultRes.ok) {
         const errText = await resultRes.text()
-        console.error('[video/status] Failed to fetch result:', errText.slice(0, 300))
-        return Response.json({ error: 'Failed to fetch completed result' }, { status: 500 })
+        console.error('[video/status] Failed to fetch result:', errText.slice(0, 500))
+        return Response.json({ error: `Failed to fetch completed result (${resultRes.status})` }, { status: 500 })
       }
 
       const resultText = await resultRes.text()
+      console.log('[video/status] Result body:', resultText.slice(0, 500))
+
       let result
       try {
         result = JSON.parse(resultText)
       } catch {
-        console.error('[video/status] Non-JSON result:', resultText.slice(0, 300))
+        console.error('[video/status] Non-JSON result:', resultText.slice(0, 500))
         return Response.json({ error: 'Invalid result response' }, { status: 500 })
       }
 
-      const videoUrl = result.video?.url
+      // Try multiple possible locations for the video URL
+      const videoUrl = result.video?.url || result.data?.video?.url || result.output?.video?.url
       if (!videoUrl) {
-        console.error('[video/status] No video URL in result:', JSON.stringify(result).slice(0, 300))
+        console.error('[video/status] No video URL in result. Keys:', Object.keys(result), 'Full:', JSON.stringify(result).slice(0, 500))
         return Response.json({ error: 'No video URL in completed result' }, { status: 500 })
       }
 
