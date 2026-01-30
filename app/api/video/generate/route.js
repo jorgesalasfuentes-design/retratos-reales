@@ -1,4 +1,4 @@
-export const maxDuration = 60
+export const maxDuration = 300
 export const dynamic = 'force-dynamic'
 
 import { fal } from '@fal-ai/client'
@@ -47,16 +47,32 @@ export async function POST(request) {
       return Response.json({ error: `Invalid video type: ${type}` }, { status: 400 })
     }
 
-    console.log(`[video/generate] Submitting ${model} to queue...`)
+    console.log(`[video/generate] Calling fal.subscribe for ${model}...`)
 
-    const { request_id } = await fal.queue.submit(model, { input })
+    // fal.subscribe handles submit + poll + result fetch in one call
+    const result = await fal.subscribe(model, {
+      input,
+      logs: false,
+      onQueueUpdate: (update) => {
+        console.log(`[video/generate] Queue: ${update.status}`)
+      },
+    })
 
-    console.log(`[video/generate] Queued: request_id=${request_id}`)
+    console.log('[video/generate] Result keys:', Object.keys(result.data || result))
 
-    return Response.json({ status: 'queued', requestId: request_id, model })
+    const data = result.data || result
+    const videoUrl = data.video?.url
+
+    if (!videoUrl) {
+      console.error('[video/generate] No video URL. Result:', JSON.stringify(data).slice(0, 500))
+      return Response.json({ error: 'No video URL in result' }, { status: 500 })
+    }
+
+    console.log('[video/generate] Success! Video URL:', videoUrl.slice(0, 80))
+    return Response.json({ status: 'completed', videoUrl })
 
   } catch (error) {
-    console.error('[video/generate] Unhandled error:', error.message, error.stack)
+    console.error('[video/generate] Error:', error.message, error.stack)
     return Response.json({ error: error.message || 'Unknown error' }, { status: 500 })
   }
 }

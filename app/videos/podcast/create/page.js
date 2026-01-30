@@ -95,27 +95,6 @@ function PodcastCreateContent() {
         }
       }
 
-      const pollVideoStatus = async (requestId, model, onProgress) => {
-        const maxAttempts = 120
-        for (let i = 0; i < maxAttempts; i++) {
-          await new Promise(r => setTimeout(r, 5000))
-          const pct = Math.min(55 + Math.floor((i / maxAttempts) * 40), 95)
-          onProgress(pct)
-
-          const res = await fetch('/api/video/status', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requestId, model }),
-          })
-          const data = await safeJson(res, 'Video status')
-          if (!res.ok) throw new Error(data.error || 'Status check failed')
-
-          if (data.status === 'completed') return data.videoUrl
-          if (data.status === 'failed') throw new Error(data.error || 'Video generation failed')
-        }
-        throw new Error('Video generation timed out')
-      }
-
       // Step 1: Get Naomi's answer via Claude
       setProgress(10)
       const answerRes = await fetch('/api/podcast/naomi-answer', {
@@ -159,22 +138,17 @@ function PodcastCreateContent() {
         }),
       })
 
+      clearInterval(progressInterval)
+      setProgress(95)
+
       const videoData = await safeJson(videoRes, 'Video generate')
       if (!videoRes.ok) throw new Error(videoData.error || 'Video generation failed')
 
-      let finalVideoUrl = videoData.videoUrl
-
-      if (videoData.status === 'queued' && videoData.requestId) {
-        setProgress(55)
-        finalVideoUrl = await pollVideoStatus(videoData.requestId, videoData.model, (p) => setProgress(p))
-      }
-
-      clearInterval(progressInterval)
       setProgress(100)
-      setVideoUrl(finalVideoUrl)
+      setVideoUrl(videoData.videoUrl)
 
       addToVideoGallery({
-        videoUrl: finalVideoUrl,
+        videoUrl: videoData.videoUrl,
         thumbnailUrl: guestImage,
         templateId: 'podcast',
         templateName: 'El Podcast de Naomi',
