@@ -276,7 +276,7 @@ export default function Home() {
         requestAnimationFrame(() => setShowcaseProgress(100))
       })
       setShowcaseIndex(prev => (prev + 1) % SHOWCASE_EXAMPLES.length)
-    }, 3000)
+    }, 2000)
     return () => {
       clearInterval(interval)
       cancelAnimationFrame(raf)

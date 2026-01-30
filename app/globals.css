@@ -256,7 +256,7 @@ html, body {
   inset: 0;
   opacity: 0;
   transform: scale(1.04);
-  transition: opacity 0.8s ease, transform 0.8s ease;
+  transition: opacity 0.6s ease, transform 0.6s ease;
   will-change: opacity, transform;
 }
 
@@ -344,7 +344,7 @@ html, body {
 }
 
 .showcase-progress-animate {
-  transition: width 3s linear;
+  transition: width 2s linear;
 }
 
 /* ─── Cards ─── */
