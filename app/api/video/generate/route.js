@@ -1,4 +1,5 @@
 export const maxDuration = 300
+export const dynamic = 'force-dynamic'
 
 async function safeParseJson(response, label) {
   const text = await response.text()
