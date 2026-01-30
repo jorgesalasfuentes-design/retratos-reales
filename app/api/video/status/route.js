@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { requestId, statusUrl, responseUrl } = body
+    const { requestId, statusUrl, model } = body
 
-    if (!requestId || !statusUrl || !responseUrl) {
-      return Response.json({ error: 'Missing requestId, statusUrl, or responseUrl' }, { status: 400 })
+    if (!requestId || !statusUrl || !model) {
+      return Response.json({ error: 'Missing requestId, statusUrl, or model' }, { status: 400 })
     }
 
     const falKey = process.env.FAL_API_KEY
@@ -45,10 +45,10 @@ export async function POST(request) {
         return Response.json({ status: 'completed', videoUrl: status.video.url })
       }
 
-      // Build result URL by stripping /status from the status URL
-      // The response_url from queue submit points to the generation endpoint (wrong),
-      // but the result lives at the same path as status without the /status suffix
-      const resultUrl = statusUrl.replace(/\/status$/, '')
+      // Build result URL using the FULL model path + request ID
+      // The status URL from fal.ai uses the base model (fal-ai/kling-video),
+      // but the result endpoint needs the full path (fal-ai/kling-video/ai-avatar/v2/standard)
+      const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`
       console.log(`[video/status] Fetching result from: ${resultUrl}`)
 
       const resultRes = await fetch(resultUrl, {
