@@ -109,6 +109,10 @@ export async function POST(request) {
             audio_url: didAudioUrl,
             subtitles: false,
           },
+          config: {
+            stitch: true,
+            result_format: 'mp4',
+          },
         }),
       })
 
@@ -205,7 +209,9 @@ async function pollDID(authHeader, talkId) {
     }
 
     if (data.status === 'error' || data.status === 'rejected') {
-      throw new Error(`D-ID video failed: ${data.status}`)
+      const errorDetail = data.error?.description || data.error?.kind || data.reject_reason || JSON.stringify(data).slice(0, 300)
+      console.error(`[video/generate] D-ID talk failed:`, JSON.stringify(data).slice(0, 500))
+      throw new Error(`D-ID video failed (${data.status}): ${errorDetail}`)
     }
   }
 
