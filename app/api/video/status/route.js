@@ -45,8 +45,10 @@ export async function POST(request) {
         return Response.json({ status: 'completed', videoUrl: status.video.url })
       }
 
-      // Use the response_url from the status response if available, otherwise use the one from queue submit
-      const resultUrl = status.response_url || responseUrl
+      // Build result URL by stripping /status from the status URL
+      // The response_url from queue submit points to the generation endpoint (wrong),
+      // but the result lives at the same path as status without the /status suffix
+      const resultUrl = statusUrl.replace(/\/status$/, '')
       console.log(`[video/status] Fetching result from: ${resultUrl}`)
 
       const resultRes = await fetch(resultUrl, {
