@@ -70,11 +70,9 @@ export async function POST(request) {
         return Response.json({ error: 'No request_id from fal.ai queue' }, { status: 500 })
       }
 
-      // status_url from fal.ai uses base model path for status checks
-      // model is needed separately to construct the result-fetch URL with full subpath
       const statusUrl = data.status_url || `https://queue.fal.run/${model}/requests/${data.request_id}/status`
 
-      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl, model })
+      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl })
 
     } else if (type === 'scene') {
       const prompt = scenePrompt || 'This pet in a magical scene, 9:16 vertical video'
@@ -116,7 +114,7 @@ export async function POST(request) {
 
       const statusUrl = data.status_url || `https://queue.fal.run/${model}/requests/${data.request_id}/status`
 
-      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl, model })
+      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl })
 
     } else {
       return Response.json({ error: `Invalid video type: ${type}` }, { status: 400 })

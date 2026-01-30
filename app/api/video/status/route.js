@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { requestId, statusUrl, model } = body
+    const { requestId, statusUrl } = body
 
-    if (!requestId || !statusUrl || !model) {
-      return Response.json({ error: 'Missing requestId, statusUrl, or model' }, { status: 400 })
+    if (!requestId || !statusUrl) {
+      return Response.json({ error: 'Missing requestId or statusUrl' }, { status: 400 })
     }
 
     const falKey = process.env.FAL_API_KEY
@@ -15,10 +15,13 @@ export async function POST(request) {
       return Response.json({ error: 'FAL API key not configured' }, { status: 500 })
     }
 
-    // Check queue status using the URL provided by fal.ai
+    // Check queue status
     console.log(`[video/status] Checking: ${statusUrl}`)
     const statusRes = await fetch(statusUrl, {
-      headers: { 'Authorization': `Key ${falKey}` },
+      headers: {
+        'Authorization': `Key ${falKey}`,
+        'Accept': 'application/json',
+      },
     })
 
     if (!statusRes.ok) {
@@ -36,23 +39,30 @@ export async function POST(request) {
       return Response.json({ error: 'Invalid status response' }, { status: 500 })
     }
 
-    console.log(`[video/status] ${requestId}: status=${status.status}, full:`, JSON.stringify(status).slice(0, 500))
+    console.log(`[video/status] ${requestId}: status=${status.status}, full:`, JSON.stringify(status).slice(0, 800))
 
     if (status.status === 'COMPLETED') {
-      // First check if the status response itself contains the video URL
+      // Check if the status response already contains the video URL directly
       if (status.video?.url) {
         console.log('[video/status] Video URL from status response:', status.video.url.slice(0, 80))
         return Response.json({ status: 'completed', videoUrl: status.video.url })
       }
 
-      // Build result URL using the FULL model path + request ID
-      // The status URL from fal.ai uses the base model (fal-ai/kling-video),
-      // but the result endpoint needs the full path (fal-ai/kling-video/ai-avatar/v2/standard)
-      const resultUrl = `https://queue.fal.run/${model}/requests/${requestId}`
-      console.log(`[video/status] Fetching result from: ${resultUrl}`)
+      // Use the response_url from the status response — this is the canonical URL
+      // Per fal.ai docs: subpaths should NOT be used for fetching results
+      const resultUrl = status.response_url
+      if (!resultUrl) {
+        console.error('[video/status] COMPLETED but no response_url in status:', JSON.stringify(status).slice(0, 500))
+        return Response.json({ error: 'No response_url in completed status' }, { status: 500 })
+      }
+
+      console.log(`[video/status] Fetching result from response_url: ${resultUrl}`)
 
       const resultRes = await fetch(resultUrl, {
-        headers: { 'Authorization': `Key ${falKey}` },
+        headers: {
+          'Authorization': `Key ${falKey}`,
+          'Accept': 'application/json',
+        },
       })
 
       console.log(`[video/status] Result fetch status: ${resultRes.status}`)
@@ -74,7 +84,6 @@ export async function POST(request) {
         return Response.json({ error: 'Invalid result response' }, { status: 500 })
       }
 
-      // Try multiple possible locations for the video URL
       const videoUrl = result.video?.url || result.data?.video?.url || result.output?.video?.url
       if (!videoUrl) {
         console.error('[video/status] No video URL in result. Keys:', Object.keys(result), 'Full:', JSON.stringify(result).slice(0, 500))
@@ -89,7 +98,6 @@ export async function POST(request) {
       return Response.json({ status: 'failed', error: status.error || 'Video generation failed' })
 
     } else {
-      // IN_QUEUE or IN_PROGRESS
       return Response.json({ status: 'processing', queueStatus: status.status })
     }
 
