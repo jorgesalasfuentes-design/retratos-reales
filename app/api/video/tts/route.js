@@ -20,24 +20,24 @@ export async function POST(request) {
 
     // Truncate text to 250 chars max to avoid TTS timeouts
     const truncatedText = text.length > 250 ? text.slice(0, 247) + '...' : text
-    console.log('[video/tts] Calling F5-TTS...', { originalLength: text.length, truncatedLength: truncatedText.length })
+    console.log('[video/tts] Calling Kokoro TTS...', { originalLength: text.length, truncatedLength: truncatedText.length })
 
-    const response = await fetch('https://fal.run/fal-ai/f5-tts', {
+    const response = await fetch('https://fal.run/fal-ai/kokoro', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        gen_text: truncatedText,
-        ...(voice ? { ref_audio_url: voice } : {}),
+        prompt: truncatedText,
+        voice: voice || 'af_heart',
       }),
     })
 
     const responseText = await response.text()
 
     if (!response.ok) {
-      console.error(`[video/tts] F5-TTS error (${response.status}):`, responseText.slice(0, 500))
+      console.error(`[video/tts] Kokoro error (${response.status}):`, responseText.slice(0, 500))
       return Response.json({ error: `TTS failed (${response.status}): ${responseText.slice(0, 100)}` }, { status: 500 })
     }
 
@@ -45,16 +45,15 @@ export async function POST(request) {
     try {
       data = JSON.parse(responseText)
     } catch {
-      console.error('[video/tts] Non-JSON response from F5-TTS:', responseText.slice(0, 500))
-      return Response.json({ error: 'F5-TTS returned invalid response' }, { status: 500 })
+      console.error('[video/tts] Non-JSON response from Kokoro:', responseText.slice(0, 500))
+      return Response.json({ error: 'Kokoro returned invalid response' }, { status: 500 })
     }
 
-    console.log('[video/tts] F5-TTS response keys:', Object.keys(data))
+    console.log('[video/tts] Kokoro response keys:', Object.keys(data))
 
-    const audioUrl = data.audio_url?.url || data.audio?.url
-    if (audioUrl) {
-      console.log('[video/tts] Success! Audio URL:', audioUrl.slice(0, 80))
-      return Response.json({ status: 'completed', audioUrl })
+    if (data.audio?.url) {
+      console.log('[video/tts] Success! Audio URL:', data.audio.url.slice(0, 80))
+      return Response.json({ status: 'completed', audioUrl: data.audio.url })
     }
 
     console.error('[video/tts] No audio URL in response:', JSON.stringify(data).slice(0, 300))
