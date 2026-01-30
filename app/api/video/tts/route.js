@@ -1,4 +1,4 @@
-export const maxDuration = 60
+export const maxDuration = 120
 export const dynamic = 'force-dynamic'
 
 export async function POST(request) {
@@ -18,24 +18,26 @@ export async function POST(request) {
       return Response.json({ error: 'FAL API key not configured' }, { status: 500 })
     }
 
-    console.log('[video/tts] Calling Chatterbox TTS...')
+    // Truncate text to 250 chars max to avoid TTS timeouts
+    const truncatedText = text.length > 250 ? text.slice(0, 247) + '...' : text
+    console.log('[video/tts] Calling F5-TTS...', { originalLength: text.length, truncatedLength: truncatedText.length })
 
-    const response = await fetch('https://fal.run/fal-ai/chatterbox', {
+    const response = await fetch('https://fal.run/fal-ai/f5-tts', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: text,
-        ...(voice ? { audio_url: voice } : {}),
+        gen_text: truncatedText,
+        ...(voice ? { ref_audio_url: voice } : {}),
       }),
     })
 
     const responseText = await response.text()
 
     if (!response.ok) {
-      console.error(`[video/tts] Chatterbox error (${response.status}):`, responseText.slice(0, 500))
+      console.error(`[video/tts] F5-TTS error (${response.status}):`, responseText.slice(0, 500))
       return Response.json({ error: `TTS failed (${response.status}): ${responseText.slice(0, 100)}` }, { status: 500 })
     }
 
@@ -43,15 +45,16 @@ export async function POST(request) {
     try {
       data = JSON.parse(responseText)
     } catch {
-      console.error('[video/tts] Non-JSON response from Chatterbox:', responseText.slice(0, 500))
-      return Response.json({ error: 'Chatterbox returned invalid response' }, { status: 500 })
+      console.error('[video/tts] Non-JSON response from F5-TTS:', responseText.slice(0, 500))
+      return Response.json({ error: 'F5-TTS returned invalid response' }, { status: 500 })
     }
 
-    console.log('[video/tts] Chatterbox response keys:', Object.keys(data))
+    console.log('[video/tts] F5-TTS response keys:', Object.keys(data))
 
-    if (data.audio?.url) {
-      console.log('[video/tts] Success! Audio URL:', data.audio.url.slice(0, 80))
-      return Response.json({ status: 'completed', audioUrl: data.audio.url })
+    const audioUrl = data.audio_url?.url || data.audio?.url
+    if (audioUrl) {
+      console.log('[video/tts] Success! Audio URL:', audioUrl.slice(0, 80))
+      return Response.json({ status: 'completed', audioUrl })
     }
 
     console.error('[video/tts] No audio URL in response:', JSON.stringify(data).slice(0, 300))
