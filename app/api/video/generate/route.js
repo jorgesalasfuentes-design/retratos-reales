@@ -58,7 +58,7 @@ export async function POST(request) {
       }
 
       const data = await safeParseJson(response, 'Kling Avatar queue')
-      console.log('[video/generate] Queued:', JSON.stringify(data).slice(0, 200))
+      console.log('[video/generate] Queued:', JSON.stringify(data).slice(0, 500))
 
       // If fal returned a synchronous result, return it directly
       if (data.video?.url) {
@@ -66,11 +66,15 @@ export async function POST(request) {
       }
 
       if (!data.request_id) {
-        console.error('[video/generate] No request_id in queue response:', JSON.stringify(data).slice(0, 300))
+        console.error('[video/generate] No request_id in queue response:', JSON.stringify(data).slice(0, 500))
         return Response.json({ error: 'No request_id from fal.ai queue' }, { status: 500 })
       }
 
-      return Response.json({ status: 'queued', requestId: data.request_id, model })
+      // Use response_url and status_url from fal.ai directly (avoids subpath issues)
+      const statusUrl = data.status_url || `https://queue.fal.run/${model}/requests/${data.request_id}/status`
+      const responseUrl = data.response_url || `https://queue.fal.run/${model}/requests/${data.request_id}`
+
+      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl, responseUrl })
 
     } else if (type === 'scene') {
       const prompt = scenePrompt || 'This pet in a magical scene, 9:16 vertical video'
@@ -99,18 +103,21 @@ export async function POST(request) {
       }
 
       const data = await safeParseJson(response, 'Kling Scene queue')
-      console.log('[video/generate] Queued:', JSON.stringify(data).slice(0, 200))
+      console.log('[video/generate] Queued:', JSON.stringify(data).slice(0, 500))
 
       if (data.video?.url) {
         return Response.json({ status: 'completed', videoUrl: data.video.url })
       }
 
       if (!data.request_id) {
-        console.error('[video/generate] No request_id in queue response:', JSON.stringify(data).slice(0, 300))
+        console.error('[video/generate] No request_id in queue response:', JSON.stringify(data).slice(0, 500))
         return Response.json({ error: 'No request_id from fal.ai queue' }, { status: 500 })
       }
 
-      return Response.json({ status: 'queued', requestId: data.request_id, model })
+      const statusUrl = data.status_url || `https://queue.fal.run/${model}/requests/${data.request_id}/status`
+      const responseUrl = data.response_url || `https://queue.fal.run/${model}/requests/${data.request_id}`
+
+      return Response.json({ status: 'queued', requestId: data.request_id, statusUrl, responseUrl })
 
     } else {
       return Response.json({ error: `Invalid video type: ${type}` }, { status: 400 })

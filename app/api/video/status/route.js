@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { requestId, model } = body
+    const { requestId, statusUrl, responseUrl } = body
 
-    if (!requestId || !model) {
-      return Response.json({ error: 'Missing requestId or model' }, { status: 400 })
+    if (!requestId || !statusUrl || !responseUrl) {
+      return Response.json({ error: 'Missing requestId, statusUrl, or responseUrl' }, { status: 400 })
     }
 
     const falKey = process.env.FAL_API_KEY
@@ -15,8 +15,9 @@ export async function POST(request) {
       return Response.json({ error: 'FAL API key not configured' }, { status: 500 })
     }
 
-    // Check queue status
-    const statusRes = await fetch(`https://queue.fal.run/${model}/requests/${requestId}/status`, {
+    // Check queue status using the URL provided by fal.ai
+    console.log(`[video/status] Checking: ${statusUrl}`)
+    const statusRes = await fetch(statusUrl, {
       headers: { 'Authorization': `Key ${falKey}` },
     })
 
@@ -38,8 +39,8 @@ export async function POST(request) {
     console.log(`[video/status] ${requestId}: status=${status.status}`)
 
     if (status.status === 'COMPLETED') {
-      // Fetch the actual result
-      const resultRes = await fetch(`https://queue.fal.run/${model}/requests/${requestId}`, {
+      // Fetch the actual result using the URL provided by fal.ai
+      const resultRes = await fetch(responseUrl, {
         headers: { 'Authorization': `Key ${falKey}` },
       })
 

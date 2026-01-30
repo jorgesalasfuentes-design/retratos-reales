@@ -95,7 +95,7 @@ function PodcastCreateContent() {
         }
       }
 
-      const pollVideoStatus = async (requestId, model, onProgress) => {
+      const pollVideoStatus = async (requestId, statusUrl, responseUrl, onProgress) => {
         const maxAttempts = 120
         for (let i = 0; i < maxAttempts; i++) {
           await new Promise(r => setTimeout(r, 5000))
@@ -105,7 +105,7 @@ function PodcastCreateContent() {
           const res = await fetch('/api/video/status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requestId, model }),
+            body: JSON.stringify({ requestId, statusUrl, responseUrl }),
           })
           const data = await safeJson(res, 'Video status')
           if (!res.ok) throw new Error(data.error || 'Status check failed')
@@ -166,7 +166,7 @@ function PodcastCreateContent() {
 
       if (videoData.status === 'queued' && videoData.requestId) {
         setProgress(55)
-        finalVideoUrl = await pollVideoStatus(videoData.requestId, videoData.model, (p) => setProgress(p))
+        finalVideoUrl = await pollVideoStatus(videoData.requestId, videoData.statusUrl, videoData.responseUrl, (p) => setProgress(p))
       }
 
       clearInterval(progressInterval)
