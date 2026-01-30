@@ -133,7 +133,7 @@ function PodcastCreateContent() {
           type: 'podcast',
           script: fullScript,
           scenePrompt: podcastPrompt,
-          duration: 10,
+          duration: 5,
           audioUrl: ttsData.audioUrl,
         }),
       })
@@ -283,7 +283,7 @@ function PodcastCreateContent() {
               </div>
               <div className="video-meta-item">
                 <span className="video-meta-label">{lang === 'es' ? 'Duracion' : 'Duration'}</span>
-                <span className="video-meta-value">{t.duration10s}</span>
+                <span className="video-meta-value">{t.duration5s}</span>
               </div>
               <div className="video-meta-item">
                 <span className="video-meta-label">{t.videoCost}</span>

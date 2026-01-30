@@ -46,7 +46,7 @@ export async function POST(request) {
         body: JSON.stringify({
           human_image_url: image.startsWith('data:') ? image : `data:image/jpeg;base64,${image}`,
           audio_url: audioUrl,
-          duration: String(duration || (type === 'podcast' ? 10 : 5)),
+          duration: String(duration || 5),
         }),
       })
 
@@ -69,7 +69,7 @@ export async function POST(request) {
 
       console.log('[video/generate] Calling Kling Scene video...')
 
-      const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v2.6/pro/image-to-video', {
+      const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v2.5-turbo/pro/image-to-video', {
         method: 'POST',
         headers: {
           'Authorization': `Key ${falKey}`,
@@ -93,7 +93,7 @@ export async function POST(request) {
       console.log('[video/generate] Kling Scene response:', JSON.stringify(data).slice(0, 200))
 
       if (data.request_id) {
-        videoUrl = await pollForResult(falKey, 'fal-ai/kling-video/v2.6/pro/image-to-video', data.request_id)
+        videoUrl = await pollForResult(falKey, 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video', data.request_id)
       } else if (data.video?.url) {
         videoUrl = data.video.url
       }
@@ -116,7 +116,7 @@ export async function POST(request) {
 }
 
 async function pollForResult(apiKey, model, requestId) {
-  const maxAttempts = 60
+  const maxAttempts = 100
   const delay = 3000
 
   console.log(`[video/generate] Polling for result: ${model} / ${requestId}`)
@@ -169,5 +169,5 @@ async function pollForResult(apiKey, model, requestId) {
     }
   }
 
-  throw new Error('Video generation timed out after 3 minutes')
+  throw new Error('Video generation timed out after 5 minutes')
 }
