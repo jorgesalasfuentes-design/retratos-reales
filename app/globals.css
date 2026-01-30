@@ -2005,3 +2005,609 @@ html, body {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+
+/* ─── Video Home ─── */
+.video-header {
+  margin-bottom: 20px;
+}
+
+.video-header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.video-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.video-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ─── Podcast Banner ─── */
+.podcast-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(244, 114, 182, 0.12) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.20);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: transform 0.2s var(--ease-out);
+  animation: fadeInUp 0.4s var(--ease-out) both;
+}
+
+.podcast-banner:active {
+  transform: scale(0.98);
+}
+
+.podcast-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.podcast-banner-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  flex-shrink: 0;
+}
+
+.podcast-banner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.podcast-banner-title {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.podcast-banner-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.podcast-banner-badge {
+  padding: 4px 10px;
+  background: var(--gradient-pink);
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: white;
+  flex-shrink: 0;
+}
+
+/* ─── Category Pills ─── */
+.category-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin-bottom: 20px;
+  padding-bottom: 4px;
+}
+
+.category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.category-pill {
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all 0.2s var(--ease-out);
+}
+
+.category-pill-active {
+  background: var(--accent-primary-soft);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+/* ─── Template Card ─── */
+.template-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  transition: all 0.2s var(--ease-out);
+  margin-bottom: 8px;
+}
+
+.template-card:active {
+  transform: scale(0.98);
+  background: var(--bg-card-hover);
+}
+
+.template-card-emoji {
+  font-size: 28px;
+  flex-shrink: 0;
+  width: 40px;
+  text-align: center;
+}
+
+.template-card-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.template-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-card-desc {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.template-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.template-card-cost {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-amber);
+  background: rgba(251, 191, 36, 0.10);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.template-card-type {
+  font-size: 16px;
+}
+
+/* ─── Template List ─── */
+.template-list {
+  margin-bottom: 24px;
+  animation: fadeInUp 0.4s var(--ease-out) both;
+}
+
+/* ─── Video Category Section ─── */
+.video-category-section {
+  margin-bottom: 24px;
+  animation: fadeInUp 0.4s var(--ease-out) both;
+}
+
+.video-category-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.video-category-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.video-category-see-all {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+}
+
+/* ─── Template Mini Card (horizontal rows) ─── */
+.template-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+
+.template-row::-webkit-scrollbar {
+  display: none;
+}
+
+.template-mini-card {
+  flex-shrink: 0;
+  width: 100px;
+  padding: 14px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  transition: all 0.2s var(--ease-out);
+}
+
+.template-mini-card:active {
+  transform: scale(0.95);
+}
+
+.template-mini-emoji {
+  font-size: 24px;
+}
+
+.template-mini-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ─── Video Script Preview ─── */
+.video-script-preview {
+  padding: 14px;
+  background: var(--bg-card-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.video-script-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.video-script-text {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ─── Video Meta Row ─── */
+.video-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.video-meta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.video-meta-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.video-meta-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ─── Video Player ─── */
+.video-player {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  aspect-ratio: 9 / 16;
+  background: #000;
+  margin: -24px -24px 0 -24px;
+}
+
+.video-player-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.video-player-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.video-player-play {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.video-player-watermark {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* ─── Podcast Page ─── */
+.podcast-hero {
+  text-align: center;
+  padding: 24px 0 20px;
+  animation: fadeIn 0.5s var(--ease-out);
+}
+
+.podcast-hero-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(139, 92, 246, 0.3);
+  margin-bottom: 16px;
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.2);
+}
+
+.podcast-hero-title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.podcast-hero-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+
+.podcast-hero-badge {
+  display: inline-flex;
+  padding: 6px 14px;
+  background: var(--accent-primary-soft);
+  border: 1px solid rgba(139, 92, 246, 0.20);
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-primary);
+}
+
+.podcast-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  text-align: center;
+}
+
+/* ─── Podcast Questions ─── */
+.podcast-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.podcast-question-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  transition: all 0.2s var(--ease-out);
+}
+
+.podcast-question-card:active {
+  transform: scale(0.98);
+  background: var(--bg-card-hover);
+}
+
+.podcast-question-emoji {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.podcast-question-text {
+  font-size: 13px;
+  font-weight: 500;
+  flex: 1;
+  line-height: 1.4;
+}
+
+/* ─── Podcast Create ─── */
+.podcast-create-header {
+  text-align: center;
+  padding: 16px 0 20px;
+  animation: fadeIn 0.5s var(--ease-out);
+}
+
+.podcast-create-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  margin-bottom: 12px;
+}
+
+.podcast-selected-question {
+  padding: 14px;
+  background: var(--bg-card-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.podcast-question-display {
+  font-size: 15px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.podcast-guest-preview {
+  text-align: center;
+}
+
+.podcast-guest-img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+}
+
+/* ─── Podcast Generating Avatars ─── */
+.podcast-generating-avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: -10px;
+  margin-bottom: 24px;
+}
+
+.podcast-gen-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--bg-primary);
+}
+
+.podcast-gen-guest {
+  z-index: 1;
+  margin-right: -12px;
+}
+
+.podcast-gen-naomi {
+  z-index: 2;
+  border-color: var(--accent-primary);
+}
+
+.podcast-naomi-preview {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--text-tertiary);
+  text-align: center;
+  margin-bottom: 16px;
+  max-width: 280px;
+}
+
+/* ─── Podcast Answer Card ─── */
+.podcast-answer-card {
+  padding: 16px;
+  background: var(--bg-card-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.podcast-answer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.podcast-answer-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.podcast-answer-name {
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.podcast-answer-text {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
