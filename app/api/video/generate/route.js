@@ -43,8 +43,8 @@ export async function POST(request) {
 
       if (!uploadRes.ok) {
         const err = await uploadRes.text()
-        console.error(`[video/generate] D-ID image upload failed (${uploadRes.status}):`, err.slice(0, 300))
-        return Response.json({ error: `Image upload failed (${uploadRes.status})` }, { status: 500 })
+        console.error(`[video/generate] D-ID image upload failed (${uploadRes.status}):`, err)
+        return Response.json({ error: `D-ID upload failed (${uploadRes.status}): ${err.slice(0, 200)}` }, { status: 500 })
       }
 
       const uploadData = await uploadRes.json()
@@ -57,7 +57,7 @@ export async function POST(request) {
       }
 
       // Step 2: Create talk
-      console.log('[video/generate] Creating D-ID talk...')
+      console.log('[video/generate] Creating D-ID talk with:', { imageUrl: imageUrl?.slice(0, 80), audioUrl: audioUrl?.slice(0, 80) })
 
       const talkRes = await fetch('https://api.d-id.com/talks', {
         method: 'POST',
@@ -77,8 +77,8 @@ export async function POST(request) {
 
       if (!talkRes.ok) {
         const err = await talkRes.text()
-        console.error(`[video/generate] D-ID create talk failed (${talkRes.status}):`, err.slice(0, 500))
-        return Response.json({ error: `D-ID talk creation failed (${talkRes.status})` }, { status: 500 })
+        console.error(`[video/generate] D-ID create talk failed (${talkRes.status}):`, err)
+        return Response.json({ error: `D-ID talk failed (${talkRes.status}): ${err.slice(0, 200)}` }, { status: 500 })
       }
 
       const talkData = await talkRes.json()
