@@ -1,4 +1,4 @@
-export const maxDuration = 120
+export const maxDuration = 300
 
 async function safeParseJson(response, label) {
   const text = await response.text()
