@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 
-// Import all 900 variants from style files (in production these would be separate imports)
-// For now, we'll define the style metadata and load variants dynamically
+// ─── Style & Variant Data (unchanged) ───
 const STYLES = [
   {
     id: 'royal',
@@ -70,8 +69,6 @@ const STYLES = [
   },
 ]
 
-// Sample variants for each style (in production, load from JSON files)
-// Including 10 per style here for demo, full 100 would be loaded from files
 const STYLE_VARIANTS = {
   royal: [
     { id: 1, title: 'The Crowned Monarch', prompt: 'This regal dog as a powerful king seated on an ornate golden throne, wearing an ermine-trimmed crimson velvet robe, a magnificent crown encrusted with rubies and sapphires, holding a golden scepter. Throne room with towering marble columns, crystal chandeliers, and velvet drapes. Oil painting style with rich impasto brushwork, dramatic candlelight creating deep shadows.' },
@@ -183,97 +180,140 @@ const STYLE_VARIANTS = {
   ],
 }
 
-// Negative prompt block for identity preservation
 const NEGATIVE_PROMPT = `extra limbs, missing limbs, extra tails, extra ears, deformed paws, fused legs, melted face, warped face, distorted muzzle, crossed eyes, extra eyes, wrong breed, incorrect fur color, wrong fur pattern, markings in wrong place, blurry, low quality, pixelated, jpeg artifacts, watermark, signature, text, words, letters, gore, blood, violence, horror, nsfw, bad anatomy, uncanny valley`
 
+const GENERATING_MESSAGES = [
+  'Mixing the paints...',
+  'Sketching the composition...',
+  'Perfecting the details...',
+  'Adding dramatic lighting...',
+  'Refining the brushstrokes...',
+  'Almost a masterpiece...',
+  'Final touches...',
+]
+
+const CONFETTI_COLORS = [
+  '#8b7cf6', '#6dd5ed', '#34d399', '#f472b6',
+  '#fbbf24', '#6366f1', '#ec4899', '#059669',
+]
+
 export default function Home() {
-  // State management
-  const [step, setStep] = useState('upload') // upload, detecting, review, mode, style, custom, generating, result
+  // ─── State (unchanged logic) ───
+  const [step, setStep] = useState('upload')
   const [image, setImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [imageBase64, setImageBase64] = useState(null)
-  
-  // Detection results
+
   const [dogAttributes, setDogAttributes] = useState(null)
   const [detectionError, setDetectionError] = useState(null)
-  
-  // User selections
-  const [humanMode, setHumanMode] = useState('include_styled') // include_styled, remove, dog_only
+
+  const [humanMode, setHumanMode] = useState('include_styled')
   const [selectedStyle, setSelectedStyle] = useState(null)
   const [selectedVariant, setSelectedVariant] = useState(null)
   const [useCustomPrompt, setUseCustomPrompt] = useState(false)
   const [customPrompt, setCustomPrompt] = useState('')
-  const [strictness, setStrictness] = useState('balanced') // strict, balanced, wild
-  
-  // Results
+  const [strictness, setStrictness] = useState('balanced')
+
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [progress, setProgress] = useState(0)
-  
+
+  // New UI state
+  const [isDragging, setIsDragging] = useState(false)
+  const [showZoom, setShowZoom] = useState(false)
+  const [showConfetti, setShowConfetti] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [genMessage, setGenMessage] = useState(GENERATING_MESSAGES[0])
+
   const fileInputRef = useRef(null)
 
-  // Handle image upload and convert to base64
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        const img = new Image()
-        img.onload = () => {
-          // Resize to max 1024px for API
-          const maxSize = 1024
-          let { width, height } = img
-          if (width > maxSize || height > maxSize) {
-            if (width > height) {
-              height = (height / width) * maxSize
-              width = maxSize
-            } else {
-              width = (width / height) * maxSize
-              height = maxSize
-            }
-          }
-          
-          const canvas = document.createElement('canvas')
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(img, 0, 0, width, height)
-          
-          // Convert to JPEG base64
-          const base64 = canvas.toDataURL('image/jpeg', 0.9)
-          setImagePreview(base64)
-          setImageBase64(base64.split(',')[1])
-          setImage(file)
-          
-          // Start auto-detection
-          runDetection(base64.split(',')[1])
-        }
-        img.src = event.target.result
-      }
-      reader.readAsDataURL(file)
+  // Rotating generating messages
+  useEffect(() => {
+    if (step !== 'generating') return
+    let i = 0
+    const interval = setInterval(() => {
+      i = (i + 1) % GENERATING_MESSAGES.length
+      setGenMessage(GENERATING_MESSAGES[i])
+    }, 4000)
+    return () => clearInterval(interval)
+  }, [step])
+
+  // Confetti on result
+  useEffect(() => {
+    if (step === 'result') {
+      setShowConfetti(true)
+      const timer = setTimeout(() => setShowConfetti(false), 3000)
+      return () => clearTimeout(timer)
     }
+  }, [step])
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 2500)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  // ─── Core Functions (ALL LOGIC UNCHANGED) ───
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
   }
 
-  // Run Claude Vision detection
+  const processFile = (file) => {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const maxSize = 1024
+        let { width, height } = img
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = (height / width) * maxSize
+            width = maxSize
+          } else {
+            width = (width / height) * maxSize
+            height = maxSize
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+
+        const base64 = canvas.toDataURL('image/jpeg', 0.9)
+        setImagePreview(base64)
+        setImageBase64(base64.split(',')[1])
+        setImage(file)
+
+        runDetection(base64.split(',')[1])
+      }
+      img.src = event.target.result
+    }
+    reader.readAsDataURL(file)
+  }
+
   const runDetection = async (base64) => {
     setStep('detecting')
     setDetectionError(null)
-    
+
     try {
       const response = await fetch('/api/detect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: base64 }),
       })
-      
+
       const data = await response.json()
-      
+
       if (data.error) {
         setDetectionError(data.error)
         setStep('upload')
         return
       }
-      
+
       setDogAttributes(data)
       setStep('review')
     } catch (err) {
@@ -282,38 +322,32 @@ export default function Home() {
     }
   }
 
-  // Build identity anchor from detected attributes
   const buildIdentityAnchor = () => {
     if (!dogAttributes || !dogAttributes.dogs || dogAttributes.dogs.length === 0) {
       return ''
     }
-    
+
     const dog = dogAttributes.dogs[0]
     let parts = []
-    
-    // Breed and size
+
     parts.push(`a ${dog.size_build?.size || ''} ${dog.breed_guess || 'dog'}`)
-    
-    // Coat
+
     if (dog.coat_texture && dog.coat_length) {
       parts.push(`with ${dog.pattern_type?.replace('_', ' ') || ''} ${dog.coat_texture} ${dog.coat_length} coat`)
     }
-    
-    // Colors
+
     parts.push(`primarily ${dog.primary_fur_color || 'colored'}`)
     if (dog.secondary_fur_color) {
       parts.push(`with ${dog.secondary_fur_color} accents`)
     }
-    
-    // Distinctive markings
+
     if (dog.distinctive_markings && dog.distinctive_markings.length > 0) {
-      const markings = dog.distinctive_markings.map(m => 
+      const markings = dog.distinctive_markings.map(m =>
         `${m.type?.replace('_', ' ')} (${m.color})`
       ).join(', ')
       parts.push(`distinctive markings: ${markings}`)
     }
-    
-    // Ears and muzzle
+
     if (dog.ears?.type) {
       parts.push(`${dog.ears.type.replace('_', ' ')} ears`)
     }
@@ -322,21 +356,19 @@ export default function Home() {
       if (dog.muzzle.beard) muzzleDesc += ' with beard'
       parts.push(muzzleDesc)
     }
-    
+
     return `CRITICAL IDENTITY: This is ${parts.join('. ')}. Preserve ALL these traits exactly.`
   }
 
-  // Build human block if humans detected
   const buildHumanBlock = () => {
     if (!dogAttributes?.humans_detected || humanMode === 'dog_only') {
       return ''
     }
-    
+
     if (humanMode === 'remove') {
       return 'The dog is alone, no humans present.'
     }
-    
-    // include_styled
+
     let humanParts = []
     dogAttributes.humans?.forEach((human, i) => {
       let desc = `Human ${i + 1}: `
@@ -349,24 +381,22 @@ export default function Home() {
       desc += `${human.pose?.replace('_', ' ') || 'standing'} pose`
       humanParts.push(desc)
     })
-    
+
     return `HUMAN STYLING: Apply the same style to humans present. Preserve human identity (do not change gender, age, ethnicity, body type). ${humanParts.join('. ')}`
   }
 
-  // Build final prompt
   const buildFinalPrompt = () => {
     const identityAnchor = buildIdentityAnchor()
     const humanBlock = buildHumanBlock()
-    
+
     let styleBlock = ''
     if (useCustomPrompt) {
-      // Custom prompt with strictness wrapper
       const strictnessInstructions = {
         strict: 'The dog MUST look exactly like the original photo. Same breed, same exact fur colors, same markings in same positions, same ear type, same muzzle shape. Only the scenario/clothing/setting can change.',
         balanced: 'The dog should be clearly recognizable as the same dog. Preserve breed, general coloring, and key distinctive features. Minor stylization of fur texture or proportions is acceptable for artistic effect.',
         wild: 'The dog should still be identifiable as the same dog to the owner. Keep the general breed appearance and most distinctive features, but creative interpretation of colors, proportions, and style is encouraged.',
       }
-      
+
       styleBlock = `
 User's creative vision: ${customPrompt}
 
@@ -375,35 +405,32 @@ ${strictnessInstructions[strictness]}
 
 Keep the image family-friendly. No gore, violence, explicit content, or offensive stereotypes.`
     } else {
-      // Standard style + variant
       const style = STYLES.find(s => s.id === selectedStyle)
       styleBlock = `${style.skeleton}\n\n${selectedVariant.prompt}`
     }
-    
+
     const qualityBlock = 'High quality, detailed, professional rendering. Sharp focus on the subject. Coherent composition. Appropriate lighting for the scene.'
-    
+
     let finalPrompt = identityAnchor
     if (humanBlock) {
       finalPrompt += `\n\n${humanBlock}`
     }
     finalPrompt += `\n\nSCENE AND STYLE:\n${styleBlock}\n\nQUALITY:\n${qualityBlock}`
-    
+
     return finalPrompt
   }
 
-  // Generate portrait
   const handleGenerate = async () => {
     setStep('generating')
     setError(null)
     setProgress(0)
-    
+
     const prompt = buildFinalPrompt()
-    
-    // Progress simulation
+
     const progressInterval = setInterval(() => {
       setProgress(prev => Math.min(prev + Math.random() * 15, 90))
     }, 2000)
-    
+
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
@@ -414,17 +441,17 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
           negative_prompt: NEGATIVE_PROMPT,
         }),
       })
-      
+
       clearInterval(progressInterval)
-      
+
       const data = await response.json()
-      
+
       if (data.error) {
         setError(data.error)
         setStep('style')
         return
       }
-      
+
       setProgress(100)
       setResult(data.image)
       setStep('result')
@@ -435,21 +462,18 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
     }
   }
 
-  // Select random variant for a style
   const selectRandomVariant = (styleId) => {
     const variants = STYLE_VARIANTS[styleId]
     const randomIndex = Math.floor(Math.random() * variants.length)
     return variants[randomIndex]
   }
 
-  // Handle style selection
   const handleStyleSelect = (styleId) => {
     setSelectedStyle(styleId)
     setSelectedVariant(selectRandomVariant(styleId))
     setUseCustomPrompt(false)
   }
 
-  // Regenerate with same style but different variant
   const handleRegenerate = () => {
     if (selectedStyle) {
       setSelectedVariant(selectRandomVariant(selectedStyle))
@@ -457,7 +481,6 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
     handleGenerate()
   }
 
-  // Reset to start
   const handleReset = () => {
     setStep('upload')
     setImage(null)
@@ -472,70 +495,217 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
     setError(null)
   }
 
-  // Render detection results summary
+  // ─── New UI Handlers ───
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback((e) => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.type.startsWith('image/')) {
+      processFile(file)
+    }
+  }, [])
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        const response = await fetch(result)
+        const blob = await response.blob()
+        const file = new File([blob], 'pet-portrait.jpg', { type: 'image/jpeg' })
+        await navigator.share({
+          title: 'My Pet Portrait',
+          text: 'Check out this AI pet portrait from Retratos Reales!',
+          files: [file],
+        })
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          fallbackShare()
+        }
+      }
+    } else {
+      fallbackShare()
+    }
+  }
+
+  const fallbackShare = async () => {
+    try {
+      await navigator.clipboard.writeText(result)
+      setToast('Link copied to clipboard')
+    } catch {
+      setToast('Long-press the image to save')
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      const response = await fetch(result)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'pet-portrait.jpg'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      setToast('Portrait saved')
+    } catch {
+      setToast('Long-press the image to save')
+    }
+  }
+
+  // ─── Detection Summary ───
   const renderDetectionSummary = () => {
     if (!dogAttributes) return null
-    
     const dog = dogAttributes.dogs?.[0]
     if (!dog) return null
-    
+
     return (
-      <div style={styles.detectionCard}>
-        <h3 style={styles.detectionTitle}>🔍 Detected Traits</h3>
-        <div style={styles.traitGrid}>
-          <div style={styles.trait}>
-            <span style={styles.traitLabel}>Breed</span>
-            <span style={styles.traitValue}>{dog.breed_guess || 'Unknown'}</span>
+      <div className="detection-card">
+        <h3 className="detection-title">Detected Traits</h3>
+        <div className="trait-grid">
+          <div className="trait-item">
+            <span className="trait-label">Breed</span>
+            <span className="trait-value">{dog.breed_guess || 'Unknown'}</span>
             {dog.breed_confidence && (
-              <span style={styles.confidence}>{Math.round(dog.breed_confidence * 100)}% confident</span>
+              <div className="trait-confidence">
+                <div
+                  className="trait-confidence-fill"
+                  style={{ width: `${Math.round(dog.breed_confidence * 100)}%` }}
+                />
+              </div>
             )}
           </div>
-          <div style={styles.trait}>
-            <span style={styles.traitLabel}>Fur Color</span>
-            <span style={styles.traitValue}>{dog.primary_fur_color}{dog.secondary_fur_color ? ` & ${dog.secondary_fur_color}` : ''}</span>
+          <div className="trait-item">
+            <span className="trait-label">Fur Color</span>
+            <span className="trait-value">
+              {dog.primary_fur_color}{dog.secondary_fur_color ? ` & ${dog.secondary_fur_color}` : ''}
+            </span>
           </div>
-          <div style={styles.trait}>
-            <span style={styles.traitLabel}>Coat</span>
-            <span style={styles.traitValue}>{dog.coat_length} {dog.coat_texture}</span>
+          <div className="trait-item">
+            <span className="trait-label">Coat</span>
+            <span className="trait-value">{dog.coat_length} {dog.coat_texture}</span>
           </div>
-          <div style={styles.trait}>
-            <span style={styles.traitLabel}>Pattern</span>
-            <span style={styles.traitValue}>{dog.pattern_type?.replace('_', ' ') || 'solid'}</span>
+          <div className="trait-item">
+            <span className="trait-label">Pattern</span>
+            <span className="trait-value">{dog.pattern_type?.replace('_', ' ') || 'solid'}</span>
           </div>
           {dog.distinctive_markings?.length > 0 && (
-            <div style={styles.trait}>
-              <span style={styles.traitLabel}>Markings</span>
-              <span style={styles.traitValue}>
+            <div className="trait-item">
+              <span className="trait-label">Markings</span>
+              <span className="trait-value">
                 {dog.distinctive_markings.map(m => m.type?.replace('_', ' ')).join(', ')}
               </span>
             </div>
           )}
         </div>
         {dogAttributes.humans_detected && (
-          <div style={styles.humanDetected}>
-            👤 {dogAttributes.num_humans} human{dogAttributes.num_humans > 1 ? 's' : ''} detected
+          <div className="human-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            {dogAttributes.num_humans} human{dogAttributes.num_humans > 1 ? 's' : ''} detected
           </div>
         )}
       </div>
     )
   }
 
-  return (
-    <div style={styles.container}>
-      <div style={styles.content}>
-        <h1 style={styles.title}>🐕 Retratos Reales</h1>
-        <p style={styles.subtitle}>AI Pet Portraits • v2.0</p>
+  // ─── Confetti Renderer ───
+  const renderConfetti = () => {
+    if (!showConfetti) return null
+    return (
+      <div className="confetti-container">
+        {Array.from({ length: 30 }).map((_, i) => (
+          <div
+            key={i}
+            className="confetti-piece"
+            style={{
+              left: `${Math.random() * 100}%`,
+              backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+              animationDuration: `${2 + Math.random() * 2}s`,
+              animationDelay: `${Math.random() * 0.5}s`,
+              width: `${6 + Math.random() * 6}px`,
+              height: `${6 + Math.random() * 6}px`,
+              borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+            }}
+          />
+        ))}
+      </div>
+    )
+  }
 
-        {/* UPLOAD STEP */}
+  // ─── SVG Icons ───
+  const CameraIcon = () => (
+    <svg className="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  )
+
+  const PaletteIcon = () => (
+    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#8b7cf6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="13.5" cy="6.5" r="0.5" fill="#f472b6" stroke="#f472b6" />
+      <circle cx="17.5" cy="10.5" r="0.5" fill="#34d399" stroke="#34d399" />
+      <circle cx="8.5" cy="7.5" r="0.5" fill="#fbbf24" stroke="#fbbf24" />
+      <circle cx="6.5" cy="12.5" r="0.5" fill="#6dd5ed" stroke="#6dd5ed" />
+      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+    </svg>
+  )
+
+  // ─── Render ───
+  return (
+    <div className="app-container">
+      <div className="app-content">
+        {/* Brand */}
+        <header className="brand-header">
+          <h1 className="brand-title">Retratos Reales</h1>
+          <p className="brand-subtitle">AI Pet Portraits</p>
+        </header>
+
+        {/* UPLOAD */}
         {step === 'upload' && (
-          <div style={styles.card}>
-            <div 
-              style={styles.uploadArea}
+          <div className="card step-enter" key="upload">
+            <div
+              className={`upload-zone ${isDragging ? 'upload-zone-dragging' : ''}`}
               onClick={() => fileInputRef.current?.click()}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
-              <div style={styles.uploadIcon}>📸</div>
-              <p style={styles.uploadText}>Tap to upload your dog's photo</p>
-              <p style={styles.uploadHint}>Best results with clear face shot</p>
+              <CameraIcon />
+              <p className="upload-text">Upload Your Pet's Photo</p>
+              <p className="upload-hint">For best results, use a clear photo where your pet's face is visible</p>
+              <div className="upload-tips">
+                <div className="upload-tip">
+                  <div className="upload-tip-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-7.07-2.83 2.83M9.76 14.24l-2.83 2.83m12.14 0-2.83-2.83M9.76 9.76 6.93 6.93"/></svg>
+                  </div>
+                  <span className="upload-tip-label">Good Light</span>
+                </div>
+                <div className="upload-tip">
+                  <div className="upload-tip-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662"/></svg>
+                  </div>
+                  <span className="upload-tip-label">Clear Face</span>
+                </div>
+                <div className="upload-tip">
+                  <div className="upload-tip-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+                  </div>
+                  <span className="upload-tip-label">Close-up</span>
+                </div>
+              </div>
             </div>
             <input
               ref={fileInputRef}
@@ -545,632 +715,276 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
               style={{ display: 'none' }}
             />
             {detectionError && (
-              <div style={styles.error}>{detectionError}</div>
+              <div className="error-message">{detectionError}</div>
             )}
           </div>
         )}
 
-        {/* DETECTING STEP */}
+        {/* DETECTING */}
         {step === 'detecting' && (
-          <div style={styles.card}>
-            <img src={imagePreview} alt="Uploaded" style={styles.previewImage} />
-            <div style={styles.loadingEmoji}>🔍</div>
-            <p style={styles.progressText}>Analyzing your dog...</p>
-            <p style={styles.progressHint}>Detecting breed, colors, and markings</p>
+          <div className="card step-enter" key="detecting">
+            <div className="preview-wrapper preview-image-detecting">
+              <img src={imagePreview} alt="Uploaded" className="preview-image" />
+            </div>
+            <div className="loading-dots">
+              <div className="loading-dot" />
+              <div className="loading-dot" />
+              <div className="loading-dot" />
+            </div>
+            <p className="loading-text">Analyzing your pet...</p>
+            <p className="loading-subtext">Detecting breed, colors, and markings</p>
+            <div className="skeleton-grid">
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+              <div className="skeleton-card" />
+            </div>
           </div>
         )}
 
-        {/* REVIEW STEP - Show detection results */}
+        {/* REVIEW */}
         {step === 'review' && (
-          <div style={styles.card}>
-            <img src={imagePreview} alt="Your dog" style={styles.previewImage} />
+          <div className="card step-enter" key="review">
+            <div className="preview-wrapper">
+              <img src={imagePreview} alt="Your dog" className="preview-image" />
+            </div>
             {renderDetectionSummary()}
-            
-            {/* Human handling options if humans detected */}
+
             {dogAttributes?.humans_detected && (
-              <div style={styles.humanOptions}>
-                <p style={styles.optionLabel}>Human in photo - what should we do?</p>
-                <div style={styles.optionGrid}>
+              <div className="human-options">
+                <p className="option-label">Human in photo — what should we do?</p>
+                <div className="option-grid">
                   <button
-                    style={{
-                      ...styles.optionButton,
-                      ...(humanMode === 'include_styled' ? styles.optionSelected : {})
-                    }}
+                    className={`option-btn ${humanMode === 'include_styled' ? 'option-btn-selected' : ''}`}
                     onClick={() => setHumanMode('include_styled')}
                   >
-                    👥 Style Together
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    Style Together
                   </button>
                   <button
-                    style={{
-                      ...styles.optionButton,
-                      ...(humanMode === 'remove' ? styles.optionSelected : {})
-                    }}
+                    className={`option-btn ${humanMode === 'remove' ? 'option-btn-selected' : ''}`}
                     onClick={() => setHumanMode('remove')}
                   >
-                    🐕 Dog Only
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5"/><path d="M14.267 5.172c0-1.39 1.577-2.493 3.5-2.172 2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.855-1.45-2.239-2.5"/><path d="M8 14v.5"/><path d="M16 14v.5"/><path d="M11.25 16.25h1.5L12 17l-.75-.75Z"/><path d="M4.42 11.247A13.152 13.152 0 0 0 4 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444c0-1.061-.162-2.2-.493-3.309m-9.243-6.082A8.801 8.801 0 0 1 12 5c.78 0 1.5.108 2.161.306"/></svg>
+                    Dog Only
                   </button>
                 </div>
               </div>
             )}
-            
-            <button style={styles.primaryButton} onClick={() => setStep('style')}>
-              Continue to Styles →
+
+            <button className="btn btn-primary" onClick={() => setStep('style')}>
+              Continue to Styles
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
             </button>
-            <button style={styles.backButton} onClick={handleReset}>
-              ← Upload Different Photo
+            <button className="btn btn-ghost" onClick={handleReset}>
+              Upload Different Photo
             </button>
           </div>
         )}
 
-        {/* STYLE SELECTION STEP */}
+        {/* STYLE SELECTION */}
         {step === 'style' && (
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Choose Your Style</h2>
-            <div style={styles.styleGrid}>
+          <div className="card step-enter" key="style">
+            <h2 className="section-title">Choose a Style</h2>
+            <div className="style-grid">
               {STYLES.map(style => (
                 <button
                   key={style.id}
-                  style={{
-                    ...styles.styleButton,
-                    ...(selectedStyle === style.id ? styles.styleSelected : {})
-                  }}
+                  className={`style-card ${selectedStyle === style.id ? 'style-card-selected' : ''}`}
                   onClick={() => handleStyleSelect(style.id)}
                 >
-                  <span style={styles.styleEmoji}>{style.emoji}</span>
-                  <span style={styles.styleName}>{style.name}</span>
-                  <span style={styles.styleDesc}>{style.description}</span>
+                  <span className="style-emoji">{style.emoji}</span>
+                  <span className="style-name">{style.name}</span>
+                  <span className="style-desc">{style.description}</span>
                 </button>
               ))}
             </div>
-            
-            {/* Custom prompt option */}
-            <button 
-              style={styles.customButton}
+
+            <button
+              className="custom-card"
               onClick={() => {
                 setUseCustomPrompt(true)
                 setStep('custom')
               }}
             >
-              ✨ Write Custom Prompt
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Write Custom Prompt
             </button>
-            
+
             {selectedStyle && (
               <>
-                <div style={styles.variantPreview}>
-                  <span style={styles.variantLabel}>Selected: </span>
-                  <span style={styles.variantTitle}>{selectedVariant?.title}</span>
-                  <button 
-                    style={styles.shuffleButton}
+                <div className="variant-preview">
+                  <div className="variant-info">
+                    <span className="variant-label">Selected</span>
+                    <span className="variant-title">{selectedVariant?.title}</span>
+                  </div>
+                  <button
+                    className="shuffle-btn"
                     onClick={() => setSelectedVariant(selectRandomVariant(selectedStyle))}
                   >
-                    🎲 Shuffle
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
                   </button>
                 </div>
-                <button style={styles.generateButton} onClick={handleGenerate}>
-                  🎨 Generate Portrait
+                <button className="btn btn-success" onClick={handleGenerate}>
+                  Generate Portrait
                 </button>
               </>
             )}
-            
-            <button style={styles.backButton} onClick={() => setStep('review')}>
-              ← Back to Review
+
+            <button className="btn btn-ghost" onClick={() => setStep('review')}>
+              Back to Review
             </button>
           </div>
         )}
 
-        {/* CUSTOM PROMPT STEP */}
+        {/* CUSTOM PROMPT */}
         {step === 'custom' && (
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>✨ Custom Prompt</h2>
-            <p style={styles.customHint}>
+          <div className="card step-enter" key="custom">
+            <h2 className="section-title">Custom Prompt</h2>
+            <p className="custom-hint">
               Describe your vision. Your dog's identity will be preserved automatically.
             </p>
             <textarea
-              style={styles.customInput}
+              className="custom-textarea"
               placeholder="Example: My dog as a pirate captain on a ship at sunset, wearing an eye patch and captain's hat..."
               value={customPrompt}
               onChange={(e) => setCustomPrompt(e.target.value)}
-              rows={4}
             />
-            
-            <div style={styles.strictnessSection}>
-              <p style={styles.strictnessLabel}>Identity Preservation:</p>
-              <div style={styles.strictnessOptions}>
+
+            <div className="strictness-section">
+              <p className="strictness-label">Identity Preservation</p>
+              <div className="segmented-control">
                 {['strict', 'balanced', 'wild'].map(level => (
                   <button
                     key={level}
-                    style={{
-                      ...styles.strictnessButton,
-                      ...(strictness === level ? styles.strictnessSelected : {})
-                    }}
+                    className={`segment ${strictness === level ? 'segment-selected' : ''}`}
                     onClick={() => setStrictness(level)}
                   >
-                    {level === 'strict' && '🔒 Strict'}
-                    {level === 'balanced' && '⚖️ Balanced'}
-                    {level === 'wild' && '🎨 Wild'}
+                    {level === 'strict' && (
+                      <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Strict</>
+                    )}
+                    {level === 'balanced' && (
+                      <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg> Balanced</>
+                    )}
+                    {level === 'wild' && (
+                      <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Wild</>
+                    )}
                   </button>
                 ))}
               </div>
-              <p style={styles.strictnessHint}>
-                {strictness === 'strict' && 'Exact match - your dog will look identical'}
-                {strictness === 'balanced' && 'Recommended - recognizable with artistic freedom'}
-                {strictness === 'wild' && 'Creative - more stylization allowed'}
+              <p className="strictness-hint">
+                {strictness === 'strict' && 'Exact match — your dog will look identical'}
+                {strictness === 'balanced' && 'Recommended — recognizable with artistic freedom'}
+                {strictness === 'wild' && 'Creative — more stylization allowed'}
               </p>
             </div>
-            
-            <button 
-              style={styles.generateButton}
+
+            <button
+              className="btn btn-success"
               onClick={handleGenerate}
               disabled={!customPrompt.trim()}
+              style={!customPrompt.trim() ? { opacity: 0.4 } : {}}
             >
-              🎨 Generate Portrait
+              Generate Portrait
             </button>
-            
-            <button style={styles.backButton} onClick={() => {
+
+            <button className="btn btn-ghost" onClick={() => {
               setUseCustomPrompt(false)
               setStep('style')
             }}>
-              ← Back to Styles
+              Back to Styles
             </button>
           </div>
         )}
 
-        {/* GENERATING STEP */}
+        {/* GENERATING */}
         {step === 'generating' && (
-          <div style={styles.card}>
-            <img src={imagePreview} alt="Your dog" style={styles.previewImage} />
-            <div style={styles.loadingEmoji}>🎨</div>
-            <p style={styles.progressText}>Creating your portrait...</p>
-            {selectedVariant && !useCustomPrompt && (
-              <p style={styles.variantGenerating}>"{selectedVariant.title}"</p>
-            )}
-            <div style={styles.progressContainer}>
-              <div style={{ ...styles.progressBar, width: `${progress}%` }} />
+          <div className="card step-enter" key="generating">
+            <div className="generating-center">
+              <img src={imagePreview} alt="Your dog" className="generating-thumb" />
+              <div className="generating-icon">
+                <PaletteIcon />
+              </div>
+              <p className="generating-text">Creating your portrait...</p>
+              {selectedVariant && !useCustomPrompt && (
+                <p className="generating-variant">"{selectedVariant.title}"</p>
+              )}
+              <p className="generating-message">{genMessage}</p>
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="progress-time">This usually takes 30–60 seconds</p>
             </div>
-            <p style={styles.progressHint}>This takes 30-60 seconds</p>
           </div>
         )}
 
-        {/* RESULT STEP */}
+        {/* RESULT */}
         {step === 'result' && (
-          <div style={styles.card}>
-            <div style={styles.resultContainer}>
-              <img src={result} alt="Generated portrait" style={styles.resultImage} />
+          <div className="card step-enter" key="result">
+            <div className="result-hero" onClick={() => setShowZoom(true)}>
+              <img
+                src={result}
+                alt="Generated portrait"
+                className="result-image result-image-zoomable"
+              />
             </div>
-            
+
             {selectedVariant && !useCustomPrompt && (
-              <p style={styles.resultTitle}>
-                {STYLES.find(s => s.id === selectedStyle)?.emoji} {selectedVariant.title}
+              <p className="result-title">
+                {STYLES.find(s => s.id === selectedStyle)?.emoji}{' '}
+                {selectedVariant.title}
               </p>
             )}
-            
-            <div style={styles.actionButtons}>
-              <a href={result} download="pet-portrait.png" style={styles.downloadButton}>
-                💾 Save
-              </a>
-              <button style={styles.regenerateButton} onClick={handleRegenerate}>
-                🎲 New Variant
+
+            <div className="btn-row">
+              <button className="btn btn-success" onClick={handleSave}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Save
+              </button>
+              <button className="btn btn-primary" onClick={handleShare}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                Share
               </button>
             </div>
-            
-            <button 
-              style={styles.tryStyleButton}
-              onClick={() => setStep('style')}
-            >
-              🎨 Try Different Style
+
+            <button className="btn btn-pink" onClick={handleRegenerate}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+              New Variant
             </button>
-            
-            <button style={styles.newButton} onClick={handleReset}>
-              📸 New Photo
+
+            <button className="btn btn-secondary" onClick={() => setStep('style')}>
+              Try Different Style
+            </button>
+
+            <button className="btn btn-ghost" onClick={handleReset}>
+              Start Over
             </button>
           </div>
         )}
 
-        {/* Error display */}
+        {/* Error */}
         {error && (
-          <div style={styles.error}>{error}</div>
+          <div className="error-message">{error}</div>
         )}
 
-        <p style={styles.footer}>Powered by AI • $0.04/portrait</p>
+        <p className="app-footer">Powered by AI</p>
       </div>
+
+      {/* Zoom Modal */}
+      {showZoom && (
+        <div className="zoom-overlay" onClick={() => setShowZoom(false)}>
+          <img src={result} alt="Zoomed portrait" className="zoom-image" />
+          <button className="zoom-close" onClick={() => setShowZoom(false)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Confetti */}
+      {renderConfetti()}
+
+      {/* Toast */}
+      {toast && <div className="toast">{toast}</div>}
     </div>
   )
-}
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-    padding: '20px',
-    color: 'white',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  content: {
-    maxWidth: '500px',
-    margin: '0 auto',
-  },
-  title: {
-    textAlign: 'center',
-    fontSize: '32px',
-    marginBottom: '5px',
-  },
-  subtitle: {
-    textAlign: 'center',
-    opacity: 0.7,
-    marginBottom: '25px',
-    fontSize: '14px',
-  },
-  card: {
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '20px',
-    padding: '25px',
-    backdropFilter: 'blur(10px)',
-  },
-  uploadArea: {
-    border: '2px dashed rgba(255,255,255,0.3)',
-    borderRadius: '15px',
-    padding: '40px 20px',
-    textAlign: 'center',
-    cursor: 'pointer',
-  },
-  uploadIcon: {
-    fontSize: '50px',
-    marginBottom: '15px',
-  },
-  uploadText: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-  },
-  uploadHint: {
-    fontSize: '14px',
-    opacity: 0.7,
-  },
-  previewImage: {
-    width: '100%',
-    borderRadius: '15px',
-    marginBottom: '20px',
-  },
-  loadingEmoji: {
-    fontSize: '50px',
-    textAlign: 'center',
-    animation: 'pulse 1s infinite',
-  },
-  progressText: {
-    textAlign: 'center',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    marginTop: '15px',
-  },
-  progressHint: {
-    textAlign: 'center',
-    fontSize: '14px',
-    opacity: 0.7,
-    marginTop: '8px',
-  },
-  detectionCard: {
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '12px',
-    padding: '15px',
-    marginBottom: '20px',
-  },
-  detectionTitle: {
-    fontSize: '16px',
-    marginBottom: '12px',
-  },
-  traitGrid: {
-    display: 'grid',
-    gap: '10px',
-  },
-  trait: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  traitLabel: {
-    fontSize: '12px',
-    opacity: 0.6,
-    textTransform: 'uppercase',
-  },
-  traitValue: {
-    fontSize: '15px',
-    fontWeight: 'bold',
-  },
-  confidence: {
-    fontSize: '11px',
-    opacity: 0.5,
-  },
-  humanDetected: {
-    marginTop: '12px',
-    padding: '10px',
-    background: 'rgba(255,200,0,0.2)',
-    borderRadius: '8px',
-    textAlign: 'center',
-  },
-  humanOptions: {
-    marginBottom: '20px',
-  },
-  optionLabel: {
-    fontSize: '14px',
-    marginBottom: '10px',
-  },
-  optionGrid: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '10px',
-  },
-  optionButton: {
-    padding: '12px',
-    background: 'rgba(255,255,255,0.1)',
-    border: '2px solid rgba(255,255,255,0.2)',
-    borderRadius: '10px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  optionSelected: {
-    background: 'rgba(102, 126, 234, 0.3)',
-    borderColor: '#667eea',
-  },
-  sectionTitle: {
-    textAlign: 'center',
-    marginBottom: '20px',
-  },
-  styleGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '10px',
-    marginBottom: '20px',
-  },
-  styleButton: {
-    padding: '15px 8px',
-    background: 'rgba(255,255,255,0.1)',
-    border: '2px solid rgba(255,255,255,0.2)',
-    borderRadius: '12px',
-    color: 'white',
-    cursor: 'pointer',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-  },
-  styleSelected: {
-    background: 'rgba(102, 126, 234, 0.3)',
-    borderColor: '#667eea',
-  },
-  styleEmoji: {
-    fontSize: '28px',
-    marginBottom: '6px',
-  },
-  styleName: {
-    fontSize: '12px',
-    fontWeight: 'bold',
-    marginBottom: '2px',
-  },
-  styleDesc: {
-    fontSize: '10px',
-    opacity: 0.7,
-    display: 'none',
-  },
-  customButton: {
-    width: '100%',
-    padding: '12px',
-    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    border: 'none',
-    borderRadius: '10px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    marginBottom: '15px',
-  },
-  variantPreview: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '12px',
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '10px',
-    marginBottom: '15px',
-    flexWrap: 'wrap',
-  },
-  variantLabel: {
-    fontSize: '13px',
-    opacity: 0.7,
-  },
-  variantTitle: {
-    fontSize: '14px',
-    fontWeight: 'bold',
-  },
-  shuffleButton: {
-    padding: '6px 12px',
-    background: 'rgba(255,255,255,0.2)',
-    border: 'none',
-    borderRadius: '6px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '12px',
-  },
-  primaryButton: {
-    width: '100%',
-    padding: '15px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '10px',
-  },
-  generateButton: {
-    width: '100%',
-    padding: '15px',
-    background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '10px',
-  },
-  backButton: {
-    width: '100%',
-    padding: '12px',
-    background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '10px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  customHint: {
-    fontSize: '14px',
-    opacity: 0.8,
-    marginBottom: '15px',
-    textAlign: 'center',
-  },
-  customInput: {
-    width: '100%',
-    padding: '12px',
-    background: 'rgba(255,255,255,0.1)',
-    border: '1px solid rgba(255,255,255,0.2)',
-    borderRadius: '10px',
-    color: 'white',
-    fontSize: '14px',
-    resize: 'vertical',
-    marginBottom: '15px',
-    boxSizing: 'border-box',
-  },
-  strictnessSection: {
-    marginBottom: '20px',
-  },
-  strictnessLabel: {
-    fontSize: '14px',
-    marginBottom: '10px',
-  },
-  strictnessOptions: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '8px',
-  },
-  strictnessButton: {
-    flex: 1,
-    padding: '10px',
-    background: 'rgba(255,255,255,0.1)',
-    border: '2px solid rgba(255,255,255,0.2)',
-    borderRadius: '8px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '12px',
-  },
-  strictnessSelected: {
-    background: 'rgba(102, 126, 234, 0.3)',
-    borderColor: '#667eea',
-  },
-  strictnessHint: {
-    fontSize: '12px',
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  variantGenerating: {
-    textAlign: 'center',
-    fontSize: '14px',
-    opacity: 0.8,
-    marginTop: '5px',
-    fontStyle: 'italic',
-  },
-  progressContainer: {
-    width: '100%',
-    height: '8px',
-    background: 'rgba(255,255,255,0.2)',
-    borderRadius: '4px',
-    overflow: 'hidden',
-    marginTop: '20px',
-  },
-  progressBar: {
-    height: '100%',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    transition: 'width 0.5s ease',
-  },
-  resultContainer: {
-    borderRadius: '15px',
-    overflow: 'hidden',
-    marginBottom: '15px',
-    boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-  },
-  resultImage: {
-    width: '100%',
-    display: 'block',
-  },
-  resultTitle: {
-    textAlign: 'center',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    marginBottom: '15px',
-  },
-  actionButtons: {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '10px',
-    marginBottom: '10px',
-  },
-  downloadButton: {
-    padding: '15px',
-    background: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    textDecoration: 'none',
-  },
-  regenerateButton: {
-    padding: '15px',
-    background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: 'bold',
-  },
-  tryStyleButton: {
-    width: '100%',
-    padding: '12px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    border: 'none',
-    borderRadius: '10px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-    marginBottom: '10px',
-  },
-  newButton: {
-    width: '100%',
-    padding: '12px',
-    background: 'transparent',
-    border: '1px solid rgba(255,255,255,0.3)',
-    borderRadius: '10px',
-    color: 'white',
-    cursor: 'pointer',
-    fontSize: '14px',
-  },
-  error: {
-    background: 'rgba(255,0,0,0.2)',
-    border: '1px solid rgba(255,0,0,0.5)',
-    borderRadius: '10px',
-    padding: '15px',
-    marginTop: '15px',
-    textAlign: 'center',
-  },
-  footer: {
-    textAlign: 'center',
-    marginTop: '25px',
-    opacity: 0.5,
-    fontSize: '13px',
-  },
 }

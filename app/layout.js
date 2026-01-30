@@ -4,17 +4,19 @@ export const metadata = {
   title: 'Retratos Reales - AI Pet Portraits',
   description: 'Transform your pet photos into stunning AI-generated artwork',
   manifest: '/manifest.json',
-  themeColor: '#302b63',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Retratos Reales',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#0a0a1a',
 }
 
 export default function RootLayout({ children }) {
