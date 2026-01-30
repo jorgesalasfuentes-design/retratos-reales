@@ -182,6 +182,13 @@ const STYLE_VARIANTS = {
 
 const NEGATIVE_PROMPT = `extra limbs, missing limbs, extra tails, extra ears, deformed paws, fused legs, melted face, warped face, distorted muzzle, crossed eyes, extra eyes, wrong breed, incorrect fur color, wrong fur pattern, markings in wrong place, blurry, low quality, pixelated, jpeg artifacts, watermark, signature, text, words, letters, gore, blood, violence, horror, nsfw, bad anatomy, uncanny valley`
 
+const SHOWCASE_EXAMPLES = [
+  { src: '/examples/renaissance.jpeg', emoji: '🎭', name: 'Renaissance' },
+  { src: '/examples/cyberpunk.jpeg', emoji: '🤖', name: 'Cyberpunk' },
+  { src: '/examples/fantasy.jpeg', emoji: '🐉', name: 'Fantasy Hero' },
+  { src: '/examples/japanese.jpeg', emoji: '🌸', name: 'Japanese Art' },
+]
+
 const GENERATING_MESSAGES = [
   'Mixing the paints...',
   'Sketching the composition...',
@@ -253,6 +260,28 @@ export default function Home() {
     const timer = setTimeout(() => setToast(null), 2500)
     return () => clearTimeout(timer)
   }, [toast])
+
+  // Showcase carousel
+  const [showcaseIndex, setShowcaseIndex] = useState(0)
+  const [showcaseProgress, setShowcaseProgress] = useState(0)
+
+  useEffect(() => {
+    if (step !== 'upload') return
+    // Kick off progress bar animation on next frame
+    const raf = requestAnimationFrame(() => setShowcaseProgress(100))
+    const interval = setInterval(() => {
+      setShowcaseProgress(0)
+      // Small delay so the reset (width:0) renders before we animate to 100 again
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => setShowcaseProgress(100))
+      })
+      setShowcaseIndex(prev => (prev + 1) % SHOWCASE_EXAMPLES.length)
+    }, 3000)
+    return () => {
+      clearInterval(interval)
+      cancelAnimationFrame(raf)
+    }
+  }, [step])
 
   // ─── Core Functions (ALL LOGIC UNCHANGED) ───
   const handleImageUpload = (e) => {
@@ -672,6 +701,43 @@ Keep the image family-friendly. No gore, violence, explicit content, or offensiv
           <h1 className="brand-title">Retratos Reales</h1>
           <p className="brand-subtitle">AI Pet Portraits</p>
         </header>
+
+        {/* SHOWCASE */}
+        {step === 'upload' && (
+          <div className="showcase" key="showcase">
+            <h2 className="showcase-headline">Transform your pet into art</h2>
+            <div className="showcase-viewport">
+              <div className="showcase-glow" />
+              <div
+                className={`showcase-progress ${showcaseProgress > 0 ? 'showcase-progress-animate' : ''}`}
+                style={{ width: `${showcaseProgress}%` }}
+              />
+              <div className="showcase-track">
+                {SHOWCASE_EXAMPLES.map((ex, i) => (
+                  <div
+                    key={ex.src}
+                    className={`showcase-slide ${i === showcaseIndex ? 'showcase-slide-active' : ''}`}
+                  >
+                    <img src={ex.src} alt={ex.name} />
+                  </div>
+                ))}
+              </div>
+              <div className="showcase-label">
+                <span className="showcase-style-name">
+                  {SHOWCASE_EXAMPLES[showcaseIndex].emoji} {SHOWCASE_EXAMPLES[showcaseIndex].name}
+                </span>
+                <div className="showcase-dots">
+                  {SHOWCASE_EXAMPLES.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`showcase-dot ${i === showcaseIndex ? 'showcase-dot-active' : ''}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* UPLOAD */}
         {step === 'upload' && (
