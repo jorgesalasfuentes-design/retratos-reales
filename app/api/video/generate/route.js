@@ -56,8 +56,45 @@ export async function POST(request) {
         return Response.json({ error: 'No image URL from D-ID upload' }, { status: 500 })
       }
 
-      // Step 2: Create talk
-      console.log('[video/generate] Creating D-ID talk with:', { imageUrl: imageUrl?.slice(0, 80), audioUrl: audioUrl?.slice(0, 80) })
+      // Step 2: Download audio from fal.media and upload to D-ID
+      console.log('[video/generate] Downloading audio from fal.media:', audioUrl?.slice(0, 80))
+
+      const audioFetchRes = await fetch(audioUrl)
+      if (!audioFetchRes.ok) {
+        console.error(`[video/generate] Failed to download audio (${audioFetchRes.status})`)
+        return Response.json({ error: `Failed to download audio (${audioFetchRes.status})` }, { status: 500 })
+      }
+
+      const audioBuffer = await audioFetchRes.arrayBuffer()
+      console.log('[video/generate] Audio downloaded, size:', audioBuffer.byteLength)
+
+      const audioFormData = new FormData()
+      const audioBlob = new Blob([audioBuffer], { type: 'audio/wav' })
+      audioFormData.append('audio', audioBlob, 'speech.wav')
+
+      const audioUploadRes = await fetch('https://api.d-id.com/audios', {
+        method: 'POST',
+        headers: { 'Authorization': authHeader },
+        body: audioFormData,
+      })
+
+      if (!audioUploadRes.ok) {
+        const audioErr = await audioUploadRes.text()
+        console.error(`[video/generate] D-ID audio upload failed (${audioUploadRes.status}):`, audioErr)
+        return Response.json({ error: `D-ID audio upload failed (${audioUploadRes.status}): ${audioErr.slice(0, 200)}` }, { status: 500 })
+      }
+
+      const audioUploadData = await audioUploadRes.json()
+      const didAudioUrl = audioUploadData.url
+      console.log('[video/generate] Audio uploaded to D-ID:', didAudioUrl?.slice(0, 80))
+
+      if (!didAudioUrl) {
+        console.error('[video/generate] No URL in audio upload response:', JSON.stringify(audioUploadData).slice(0, 300))
+        return Response.json({ error: 'No audio URL from D-ID upload' }, { status: 500 })
+      }
+
+      // Step 3: Create talk
+      console.log('[video/generate] Creating D-ID talk with:', { imageUrl: imageUrl?.slice(0, 80), didAudioUrl: didAudioUrl?.slice(0, 80) })
 
       const talkRes = await fetch('https://api.d-id.com/talks', {
         method: 'POST',
@@ -69,7 +106,7 @@ export async function POST(request) {
           source_url: imageUrl,
           script: {
             type: 'audio',
-            audio_url: audioUrl,
+            audio_url: didAudioUrl,
             subtitles: false,
           },
         }),
@@ -90,7 +127,7 @@ export async function POST(request) {
         return Response.json({ error: 'No talk ID from D-ID' }, { status: 500 })
       }
 
-      // Step 3: Poll for result
+      // Step 4: Poll for result
       console.log('[video/generate] Polling D-ID for result...')
       const videoUrl = await pollDID(authHeader, talkId)
 

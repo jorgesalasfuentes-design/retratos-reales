@@ -159,7 +159,7 @@ function VideoCreateContent() {
 
       // Save to gallery
       addToVideoGallery({
-        videoUrl: finalVideoUrl,
+        videoUrl: videoData.videoUrl,
         thumbnailUrl: petImage,
         templateId: template?.id || 'custom',
         templateName: templateName || 'Custom Video',
