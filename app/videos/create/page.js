@@ -97,6 +97,17 @@ function VideoCreateContent() {
     }, 1500)
 
     try {
+      // Helper to safely parse JSON responses
+      const safeJson = async (res, label) => {
+        const text = await res.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          console.error(`[video-create] ${label} non-JSON (${res.status}):`, text.slice(0, 200))
+          throw new Error(`${label} failed: ${text.slice(0, 80)}`)
+        }
+      }
+
       let audioUrl = null
 
       // Step 1: Generate TTS if talking type
@@ -116,12 +127,9 @@ function VideoCreateContent() {
           body: JSON.stringify({ text: script }),
         })
 
-        if (!ttsRes.ok) {
-          const err = await ttsRes.json()
-          throw new Error(err.error || 'TTS failed')
-        }
+        const ttsData = await safeJson(ttsRes, 'TTS')
+        if (!ttsRes.ok) throw new Error(ttsData.error || 'TTS failed')
 
-        const ttsData = await ttsRes.json()
         audioUrl = ttsData.audioUrl
         setProgress(40)
       }
@@ -143,12 +151,8 @@ function VideoCreateContent() {
       clearInterval(progressInterval)
       setProgress(95)
 
-      if (!videoRes.ok) {
-        const err = await videoRes.json()
-        throw new Error(err.error || 'Video generation failed')
-      }
-
-      const videoData = await videoRes.json()
+      const videoData = await safeJson(videoRes, 'Video generate')
+      if (!videoRes.ok) throw new Error(videoData.error || 'Video generation failed')
       setVideoUrl(videoData.videoUrl)
       setProgress(100)
 

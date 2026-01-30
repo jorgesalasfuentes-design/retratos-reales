@@ -84,6 +84,17 @@ function PodcastCreateContent() {
     }, 2000)
 
     try {
+      // Helper to safely parse JSON responses
+      const safeJson = async (res, label) => {
+        const text = await res.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          console.error(`[podcast-create] ${label} non-JSON (${res.status}):`, text.slice(0, 200))
+          throw new Error(`${label} failed: ${text.slice(0, 80)}`)
+        }
+      }
+
       // Step 1: Get Naomi's answer via Claude
       setProgress(10)
       const answerRes = await fetch('/api/podcast/naomi-answer', {
@@ -92,12 +103,9 @@ function PodcastCreateContent() {
         body: JSON.stringify({ question, lang }),
       })
 
-      if (!answerRes.ok) {
-        const err = await answerRes.json()
-        throw new Error(err.error || 'Failed to get Naomi answer')
-      }
+      const answerData = await safeJson(answerRes, 'Naomi answer')
+      if (!answerRes.ok) throw new Error(answerData.error || 'Failed to get Naomi answer')
 
-      const answerData = await answerRes.json()
       setNaomiAnswer(answerData.answer)
       setProgress(25)
 
@@ -109,16 +117,12 @@ function PodcastCreateContent() {
         body: JSON.stringify({ text: fullScript }),
       })
 
-      if (!ttsRes.ok) {
-        const err = await ttsRes.json()
-        throw new Error(err.error || 'TTS failed')
-      }
+      const ttsData = await safeJson(ttsRes, 'TTS')
+      if (!ttsRes.ok) throw new Error(ttsData.error || 'TTS failed')
 
-      const ttsData = await ttsRes.json()
       setProgress(50)
 
       // Step 3: Generate podcast video with split-screen prompt
-      // Using the guest pet image with podcast studio setting
       const podcastPrompt = `Professional podcast studio setup with warm lighting and slight bokeh background. Two dogs side by side behind large professional studio microphones. Split-screen podcast format, left side (45%) shows the guest pet being interviewed, right side (55%) shows a white Miniature Schnauzer with a pink floral bandana (Naomi, the host). "El Podcast de Naomi" text overlay at top. 24K Mic Talk TikTok podcast style. Both dogs positioned behind/next to large studio microphones. 9:16 vertical video format.`
 
       const videoRes = await fetch('/api/video/generate', {
@@ -137,12 +141,8 @@ function PodcastCreateContent() {
       clearInterval(progressInterval)
       setProgress(95)
 
-      if (!videoRes.ok) {
-        const err = await videoRes.json()
-        throw new Error(err.error || 'Video generation failed')
-      }
-
-      const videoData = await videoRes.json()
+      const videoData = await safeJson(videoRes, 'Video generate')
+      if (!videoRes.ok) throw new Error(videoData.error || 'Video generation failed')
       setVideoUrl(videoData.videoUrl)
       setProgress(100)
 
